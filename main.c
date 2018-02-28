@@ -6,6 +6,8 @@
 #include <unistd.h>
 #include <stdlib.h>
 
+#include "pal.h"
+
 #define SIZE 256
 
 /****************************************
@@ -64,6 +66,8 @@ void dfs(char* path, char* str, int prof) {
             // concatenamos con la ruta del directorio padre
             strcpy(file, path);
             strcat(file, direntDir->d_name);
+
+            // Si el archivo es un directorio y distinto de . y ..
             if (is_dir(file) && strcmp(".", direntDir->d_name) != 0 && strcmp("..", direntDir->d_name) != 0) {
 
                 char str2[2*SIZE];
