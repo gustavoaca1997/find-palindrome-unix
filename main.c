@@ -73,8 +73,8 @@ void dispath_this(char* path, char* str) {
 int is_dir(char* path) {
     struct stat *buf = (struct stat*) malloc(sizeof(struct stat)) ;
     stat(path, buf);
-    return S_ISDIR(buf->st_mode);
-    free(buf);
+    int ret = S_ISDIR(buf->st_mode);
+    return ret;
 }
 
 /*

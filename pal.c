@@ -13,13 +13,13 @@ int pal(char *str, int i, int j) {
 	}else{
 		temp = (j+1)/2;
 	}
-	while(k<temp){
+	while(k<temp && i <= j){
 		if(str[i]>='A' && str[i]<='Z'){
 			 str[i] = str[i] + 32;
 		}
 		if(str[j]>='A' && str[j]<='Z'){
 			 str[j] = str[j] + 32;
-		} 
+		}
 		if(str[i]!=str[j]){
 			return 0;
 		}else{
