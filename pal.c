@@ -8,12 +8,12 @@ int dp[MAXSIZE][MAXSIZE];
 
 int pal(char *str, int i, int j) {
 	int temp,k=0;
-	if((j+1)%2!=0){
+	/*if((j+1)%2!=0){
 		temp = (j+1)/2 +1;
 	}else{
 		temp = (j+1)/2;
-	}
-	while(k<temp && i <= j){
+	}*/
+	while(i <= j){
 		if(str[i]>='A' && str[i]<='Z'){
 			 str[i] = str[i] + 32;
 		}

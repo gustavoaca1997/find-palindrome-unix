@@ -155,6 +155,7 @@ void dfs(char* path, char* str, int prof) {
         	memset(dp, -1, sizeof(dp));
 
             printf("Pasando %s\n", str);
+            printf("Número de palindromos encontrados: %d\n", sub(str, 0, strlen(str)-1));
             exit(0);
         } else {
             // guardamos el PID en el arreglo de PID
