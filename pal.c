@@ -42,7 +42,7 @@ int sub(char *str, int i, int j) {
 	int count=0;
 	if(pal(str, i, j)){
 		int it;
-		printf("Palindromo encontrado en [%d, %d]: ", i, j);
+		printf("\tPalindromo encontrado en [%d, %d]: ", i, j);
 		for(it=i;it<=j;it++){
 			printf("%c", str[it]);
 		}
