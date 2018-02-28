@@ -70,10 +70,11 @@ void dispath_this(char* path, char* str) {
     Parametros:
     char* path: ruta del directorio actual
 */
-int is_dir(const char* path) {
-    struct stat buf;
-    stat(path, &buf);
-    return S_ISDIR(buf.st_mode);
+int is_dir(char* path) {
+    struct stat *buf = (struct stat*) malloc(sizeof(struct stat)) ;
+    stat(path, buf);
+    return S_ISDIR(buf->st_mode);
+    free(buf);
 }
 
 /*
@@ -107,7 +108,6 @@ void dfs(char* path, char* str, int prof) {
         // Si se abrió correctamente
         if (dir) {
             while ((direntDir = readdir(dir)) != NULL) {
-                printf("\n");
                 // concatenamos con la ruta del directorio padre
                 strcpy(file, path);
                 strcat(file, direntDir->d_name);
@@ -116,7 +116,7 @@ void dfs(char* path, char* str, int prof) {
                 path_this(file);
 
                 // Si el archivo es un directorio y distinto de . y ..
-                if ((is_dir(file) || (f == 1)) && strcmp(".", direntDir->d_name) != 0 && strcmp("..", direntDir->d_name) != 0) {
+                if ((is_dir(file) || (f == 1)) && strcmp(direntDir->d_name, ".") != 0 && strcmp(direntDir->d_name, "..") != 0) {
                     char str2[2*SIZE];
                     strcpy(str2, str);
                     strcat(str2, direntDir->d_name);
