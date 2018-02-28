@@ -8,9 +8,9 @@
 
 #define SIZE 256
 
-/*
-    Variables globales.
-*/
+/****************************************
+    VARIABLES GLOBALES
+*****************************************/
 // Nombre del directorio a tomar como raíz
 char dirName[SIZE];
 
@@ -18,6 +18,10 @@ int altura = 20, // altura maxima del arbol de archivos
     d = 0,          // si el flag -d aparece
     m = 0,          // si el flag -m aparece
     f = 0;          // si el flag -f aparece
+
+/********************************************
+ * FUNCIONES
+********************************************/
 
 /*
     Función que determina si un archivo es un directorio
@@ -76,6 +80,10 @@ void dfs(char* path, char* str, int prof) {
     }
 }
 
+
+/********************************
+ * MAIN
+*********************************/
 int main(int argc, char **argv) {
 
     // Si hay argumentos
