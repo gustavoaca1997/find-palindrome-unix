@@ -107,8 +107,7 @@ void dfs(char* path, char* str, int prof) {
         // Si se abrió correctamente
         if (dir) {
             while ((direntDir = readdir(dir)) != NULL) {
-                //printf("Path: %s\n", path);
-                //printf("\tfile: %s\n", direntDir->d_name);
+                printf("\n");
                 // concatenamos con la ruta del directorio padre
                 strcpy(file, path);
                 strcat(file, direntDir->d_name);
@@ -116,15 +115,13 @@ void dfs(char* path, char* str, int prof) {
                 // si a file le falta el ultimo /
                 path_this(file);
 
-                printf("%s es directorio == %d\n", file, is_dir(file));
-
                 // Si el archivo es un directorio y distinto de . y ..
                 if ((is_dir(file) || (f == 1)) && strcmp(".", direntDir->d_name) != 0 && strcmp("..", direntDir->d_name) != 0) {
                     char str2[2*SIZE];
                     strcpy(str2, str);
                     strcat(str2, direntDir->d_name);
 
-                    printf("directorio: %s\n", file);
+                    //printf("directorio: %s\n", file);
                     
                     dfs(file, str2, prof+1);
 
