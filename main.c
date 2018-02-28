@@ -6,6 +6,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <errno.h>
 
 #include "pal.h"
 
@@ -71,10 +72,20 @@ void dispath_this(char* path, char* str) {
     char* path: ruta del directorio actual
 */
 int is_dir(char* path) {
-    struct stat *buf = (struct stat*) malloc(sizeof(struct stat)) ;
-    stat(path, buf);
-    int ret = S_ISDIR(buf->st_mode);
-    return ret;
+    struct stat buf;
+    int success;
+    // Si no es un directorio:
+    if ((success = stat(path, &buf) != 0) && errno == ENOTDIR) {
+        return 0;
+    }
+    // Si ocurrió un error
+    else if (success != 0) {
+        printf("Err %d: %s\n", errno, strerror(errno));
+        exit(2);
+    }
+
+    // si es un directorio
+    return 1;
 }
 
 /*
@@ -144,7 +155,6 @@ void dfs(char* path, char* str, int prof) {
         	memset(dp, -1, sizeof(dp));
 
             printf("Pasando %s\n", str);
-            printf("Número de palindromos encontrados: %d\n", sub(str, 0, strlen(str)-1));
             exit(0);
         } else {
             // guardamos el PID en el arreglo de PID
