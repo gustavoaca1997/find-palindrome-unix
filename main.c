@@ -118,12 +118,15 @@ void leer_handler(int signum) {
                     }
                     while (0 <= l && r < strlen(str) && str[l] == str[r]) {
                         if (r-l > 1) {
-                            // Palindromo encontrado
+                            // PALINDROMO ENCONTRADO
+                            // si no es el primero
+                            if (count_pal > 0) {
+                                printf(", ");
+                            }
                             count_pal++;
                             for (int j=0; j<r-l+1; j++) {
                                 printf("%c", str[l+j]);
                             }
-                            printf(", ");
                         }
                         l--;
                         r++;
