@@ -7,14 +7,20 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <signal.h>
 
 #include "pal.h"
 
 #define SIZE 256
-#define SIGNMBR SIGUSR1 // señal de que se leyó un nombre
-#define SIGAPLL SIGUSR2 // señal de que se leyó un appelido
+#define SIGLEER SIGUSR1 // señal de que se escribió un string
+#define SIGDFS SIGUSR2 // señal de que terminó dfs
 
+// Arreglo para memoization
 extern int dp[SIZE][SIZE];
+
+// Variable booleana que le avisa al proceso encargado de encontrar palindromos
+// si ya no hay mas escrituras en el pipe proximas
+int dfs_termino = 0;
 
 /****************************************
     VARIABLES GLOBALES
@@ -33,6 +39,52 @@ pid_t pidPal;//NUEVO
 
 // Pipes
 int pipePal[2];
+
+/**********************************************
+ * MANEJADORES
+ *********************************************/
+
+/*
+    Manejador de señales para leer
+*/
+void leer_action(int signum) {
+    assert(signum == SIGLEER);
+
+    // inicializamos tabla de dp
+    memset(dp, -1, sizeof(dp));
+
+    // buffer
+    char buf[SIZE];
+
+    // string de donde se sacaran los palindromos
+    char *str;
+    str = (char *) malloc(sizeof(char)*2*SIZE);
+    int str_length = 2*SIZE, str_size = 0;
+    str[0] = '\0';
+
+    // leemos del pipe
+    int ret;
+    do {
+        ret = read(pipePal[1], buf, SIZE);
+
+        // si str está full
+        if (str_size == str_length) {
+            // duplicamos tamaño
+            str_length *= 2;
+            str = realloc(str, str_length);
+        }
+
+        // concatemos en str
+        strcat(str, buf);
+        str_size += SIZE;
+    } while (ret == SIZE);
+
+    // le pasamos el string a la funcion sub
+    assert(str_size > 0);
+    sub(str, 0, str_size-1);
+
+    free(str);
+}
 
 /********************************************
  * FUNCIONES
@@ -152,31 +204,11 @@ void dfs(char* path, char* str, int prof) {
     
     // Checkeamos si estamos en una hoja
     if (hijos == 0 || !is_dir(path) || prof==altura) {
-        memset(dp, -1, sizeof(dp));
+
         // escribimos en el pipe
-        write(pipePal[1], str, strlen(str)+1);
-        //mandar senal al hijo
-        /*pid_t pidPal;
-        // Si estamos en el proceso hijo
-        if (pidPal == 0) {
-
-            close(pipePal[0]);
-        	memset(dp, -1, sizeof(dp));
-
-            printf("Pasando %s\n", str);
-            printf("Número de palindromos encontrados: %d\n", sub(str, 0, strlen(str)-1));
-            exit(0);
-        } else {
-            // guardamos el PID en el arreglo de PID
-            procesosHijos[pidsHijos++] = pidPal;
-
-            // si ya alcanzamos la capacidad máxima
-            if (pidsHijos == pidsLength) {
-                // aumentamos el doble en la capacidad maxima
-                pidsLength = 2*pidsLength;
-                procesosHijos = realloc(procesosHijos, pidsLength);
-            }
-        }*/
+        write(pipePal[0], str, strlen(str)+1);
+        // le avisamos al hijo
+        assert(kill(pidPal, SIGLEER) == 0);
     }
 }
 
@@ -187,10 +219,9 @@ void dfs(char* path, char* str, int prof) {
 int main(int argc, char **argv) {
 
     // INICIALIZACION
-    //procesosHijos = (pid_t *) malloc(sizeof(pid_t)*SIZE);
 
-    // llamamos a pipe()
-    pipe(pipePal);  //NUEVO
+    // creamos el pipe
+    pipe(pipePal);
 
     // Si hay argumentos
     if (argc > 1) {
@@ -225,20 +256,38 @@ int main(int argc, char **argv) {
     char str[SIZE];
     dispath_this(dirName, str);
 
-    // crea proceso hijo
+    // PROCESO HIJO
     if ((pidPal = fork()) == 0) {
         // cierro el lado de escritura
         close(pipePal[0]);
+
+        // setea manejadores de señales
+        // Cuando leer de un PIPE
+        struct sigaction leer_action;
+        leer_action.sa_handler = leer_handler;
+        if (sigaction(SIGLEER, &leer_action, NULL) < 0) {
+            perror("sigaction");
+            return 1;
+        }
+
+        // Cuando el padre terminó el DFS
+        struct sigaction dfs_action;
+        dfs_action.sa_handler = dfs_handler;
+        if (sifaction(SIGDFS, $dfs_action, NULL) < 0) {
+            perror("sigaction");
+            return 1;
+        }
     } 
-    // proceso padre
+    // PROCESO PADRE
     else {
         // cierro lado de lectura
         close(pipePal[1]);
 
         // comienzo dfs
         dfs(dirName, str, 0);
-
-        // PENDIENTE: MANDAR SEÑAL DE FINALIZACION AL HIJO
+        
+        // le avisamos al hijo que terminamos
+        assert(kill(pidPal, SIGDFS));
 
         int status;
         waitpid(pidPal, &status, 0);
