@@ -1,12 +1,8 @@
-CFLAGS=gcc -g -std=c99
+CFLAGS=gcc -g -std=gnu99 -Wall
 CCFLAGS=-c
-OBJECTS=pal.o
 
-main: main.c pal.o
+main: main.c
 	${CFLAGS} ${OBJECTS} main.c -o main
-
-pal.o: pal.c pal.h
-	${CFLAGS} ${CCFLAGS} pal.c -o pal.o
 
 clean:
 	rm *.o main

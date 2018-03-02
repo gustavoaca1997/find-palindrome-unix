@@ -8,19 +8,21 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <signal.h>
+#include <assert.h>
 
-#include "pal.h"
-
-#define SIZE 256
+#define SIZE 2048
 #define SIGLEER SIGUSR1 // señal de que se escribió un string
 #define SIGDFS SIGUSR2 // señal de que terminó dfs
 
-// Arreglo para memoization
-extern int dp[SIZE][SIZE];
+#define ESCRITURA 1
+#define LECTURA 0
 
 // Variable booleana que le avisa al proceso encargado de encontrar palindromos
 // si ya no hay mas escrituras en el pipe proximas
 int dfs_termino = 0;
+
+// Variable entera que indica el numero de llamadas al leer_handler
+int count = 0;
 
 /****************************************
     VARIABLES GLOBALES
@@ -45,45 +47,90 @@ int pipePal[2];
  *********************************************/
 
 /*
-    Manejador de señales para leer
+    Manejador de señales para leer del pipe
 */
-void leer_action(int signum) {
+void leer_handler(int signum) {
+    // si es la primera llamada
+    if (count == 0) {
+        // cerramos el lado del pipe para escritura
+        close(pipePal[ESCRITURA]);
+    }
+    count++;
+
     assert(signum == SIGLEER);
 
-    // inicializamos tabla de dp
-    memset(dp, -1, sizeof(dp));
-
     // buffer
-    char buf[SIZE];
+    char buf[SIZE+2];
 
     // string de donde se sacaran los palindromos
-    char *str;
-    str = (char *) malloc(sizeof(char)*2*SIZE);
-    int str_length = 2*SIZE, str_size = 0;
+    char str[SIZE];
     str[0] = '\0';
-
     // leemos del pipe
     int ret;
     do {
-        ret = read(pipePal[1], buf, SIZE);
+        ret = read(pipePal[LECTURA], buf, 1);
 
-        // si str está full
-        if (str_size == str_length) {
-            // duplicamos tamaño
-            str_length *= 2;
-            str = realloc(str, str_length);
+        if (ret == -1) {
+            printf("Err %d: %s\n", errno, strerror(errno));
+            exit(2);
         }
 
+        if (ret == 0) {
+            break;
+        }
         // concatemos en str
         strcat(str, buf);
-        str_size += SIZE;
-    } while (ret == SIZE);
 
-    // le pasamos el string a la funcion sub
-    assert(str_size > 0);
-    sub(str, 0, str_size-1);
+        // si se leyó completo un mensaje
+        if (buf[0] == '\0') {
+            
+            // ENCONTRAR PALINDROMOS
+            for (int i=0; i<strlen(str); i++) {
 
-    free(str);
+                // extremos del substring
+                int l, r;
+                for (int k=0; k<3; k++) {
+                    // caso impar
+                    if (k == 0) {
+                        l = i-1;
+                        r = i+1;
+                    }
+                    // caso par izquierda
+                    else if (k == 2) {
+                        l = i;
+                        r = i+1;
+                    }
+                    // caso par derecha
+                    else {
+                        l = i-1;
+                        r = i;
+                    }
+                    while (0 <= l && r < strlen(str) && str[l] == str[r]) {
+                        if (r-l > 1) {
+                            for (int j=0; j<r-l+1; j++) {
+                                printf("%c", str[l+j]);
+                            }
+                            printf(", ");
+                        }
+                        l--;
+                        r++;
+                    }
+                }
+            }
+
+            str[0] = '\0';
+        }
+
+    } while (ret > 0);
+}
+
+/*
+    Manejador de la señal que indica que ya no se escribirá más en
+    el pipe
+*/
+void dfs_handler(int signum) {
+    assert(signum == SIGDFS);
+    dfs_termino = 1;
 }
 
 /********************************************
@@ -188,8 +235,6 @@ void dfs(char* path, char* str, int prof) {
                     char str2[2*SIZE];
                     strcpy(str2, str);
                     strcat(str2, direntDir->d_name);
-
-                    //printf("directorio: %s\n", file);
                     
                     dfs(file, str2, prof+1);
 
@@ -206,7 +251,10 @@ void dfs(char* path, char* str, int prof) {
     if (hijos == 0 || !is_dir(path) || prof==altura) {
 
         // escribimos en el pipe
-        write(pipePal[0], str, strlen(str)+1);
+        if (write(pipePal[ESCRITURA], str, strlen(str)+1) == -1) {
+            printf("Padre %d: Err %d: %s\n", getpid(), errno, strerror(errno));
+            exit(2);
+        }
         // le avisamos al hijo
         assert(kill(pidPal, SIGLEER) == 0);
     }
@@ -221,7 +269,10 @@ int main(int argc, char **argv) {
     // INICIALIZACION
 
     // creamos el pipe
-    pipe(pipePal);
+    if (pipe(pipePal) == -1) {
+        printf("Pipe: Err %d: %s\n", errno, strerror(errno));
+        exit(2);
+    }
 
     // Si hay argumentos
     if (argc > 1) {
@@ -255,42 +306,57 @@ int main(int argc, char **argv) {
     // Quita los / del directorio
     char str[SIZE];
     dispath_this(dirName, str);
+    
+    // setea manejadores de señales
+    // Cuando leer de un PIPE
+    struct sigaction leer_action;
+    leer_action.sa_handler = &leer_handler;
+    leer_action.sa_flags = 0;
+    if (sigaction(SIGLEER, &leer_action, NULL) < 0) {
+        printf("Error en el sigaction 1 en %d\n", getpid());
+        perror("sigaction");
+        return 1;
+    }
 
+    // Cuando el padre terminó el DFS
+    struct sigaction dfs_action;
+    dfs_action.sa_handler = &dfs_handler;
+    dfs_action.sa_flags = 0;
+    if (sigaction(SIGDFS, &dfs_action, NULL) < 0) {
+        printf("Error en el sigaction 2 en %d\n", getpid());
+        perror("sigaction");
+        return 1;
+    }
+    
     // PROCESO HIJO
-    if ((pidPal = fork()) == 0) {
-        // cierro el lado de escritura
-        close(pipePal[0]);
-
-        // setea manejadores de señales
-        // Cuando leer de un PIPE
-        struct sigaction leer_action;
-        leer_action.sa_handler = leer_handler;
-        if (sigaction(SIGLEER, &leer_action, NULL) < 0) {
-            perror("sigaction");
-            return 1;
-        }
-
-        // Cuando el padre terminó el DFS
-        struct sigaction dfs_action;
-        dfs_action.sa_handler = dfs_handler;
-        if (sifaction(SIGDFS, $dfs_action, NULL) < 0) {
-            perror("sigaction");
-            return 1;
+    pidPal = fork();
+    if (pidPal == 0) {
+        while(dfs_termino == 0) {
+            ;
         }
     } 
     // PROCESO PADRE
-    else {
+    else if (pidPal > 0) {
         // cierro lado de lectura
-        close(pipePal[1]);
-
+        if (close(pipePal[LECTURA]) == -1) {
+            printf("Padre %d: Err %d: %s\n", getpid(), errno, strerror(errno));
+            exit(2);
+        }
         // comienzo dfs
         dfs(dirName, str, 0);
-        
         // le avisamos al hijo que terminamos
-        assert(kill(pidPal, SIGDFS));
+        assert(kill(pidPal, SIGDFS) == 0);
 
         int status;
+        close(pipePal[ESCRITURA]);
         waitpid(pidPal, &status, 0);
+        printf("\n");
+    }
+    // si hubo un error
+    else if (pidPal == -1){
+        printf("error %d en el fork\n", pidPal);
+        perror("fork");
+        return 1;
     }
 
     return 0;
