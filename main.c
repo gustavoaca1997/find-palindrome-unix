@@ -31,6 +31,9 @@ int dfs_termino = 0;
 // Variable entera que indica el numero de llamadas al leer_handler
 int count = 0;
 
+// Variable que cuenta el número de palindromos encontrados
+int count_pal = 0;
+
 /****************************************
     VARIABLES GLOBALES
 *****************************************/
@@ -115,6 +118,8 @@ void leer_handler(int signum) {
                     }
                     while (0 <= l && r < strlen(str) && str[l] == str[r]) {
                         if (r-l > 1) {
+                            // Palindromo encontrado
+                            count_pal++;
                             for (int j=0; j<r-l+1; j++) {
                                 printf("%c", str[l+j]);
                             }
@@ -140,6 +145,11 @@ void leer_handler(int signum) {
 void dfs_handler(int signum) {
     assert(signum == SIGDFS);
     dfs_termino = 1;
+
+    // Si no se encontró ningún palindromo:
+    if (count_pal == 0) {
+        write(1, "No existen", 12);
+    }
 }
 
 
