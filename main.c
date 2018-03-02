@@ -1,3 +1,10 @@
+/*
+    Autores: Gustavo Castellanos, Yuni Quintero
+
+    Algoritmos usados:
+        Algoritmo de Manacher modificado
+*/
+
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -36,11 +43,12 @@ int altura = 20, // altura maxima del arbol de archivos
     f = 0;          // si el flag -f aparece
 
 // Arreglo dinámico con los PID de los procesos hijos
-pid_t pidPal;//NUEVO
+pid_t pidPal;
 //int pidsHijos = 0, pidsLength = SIZE;
 
 // Pipes
 int pipePal[2];
+
 
 /**********************************************
  * MANEJADORES
@@ -90,17 +98,17 @@ void leer_handler(int signum) {
                 // extremos del substring
                 int l, r;
                 for (int k=0; k<3; k++) {
-                    // caso impar
+                    // caso i es el centro de un substring de longitud impar
                     if (k == 0) {
                         l = i-1;
                         r = i+1;
                     }
-                    // caso par izquierda
+                    // caso i es el centro izquierdo de un substring de longitud par
                     else if (k == 2) {
                         l = i;
                         r = i+1;
                     }
-                    // caso par derecha
+                    // caso i es el centro derecho de un substring de longitud par
                     else {
                         l = i-1;
                         r = i;
@@ -118,6 +126,7 @@ void leer_handler(int signum) {
                 }
             }
 
+            // reiniciar str
             str[0] = '\0';
         }
 
@@ -132,6 +141,7 @@ void dfs_handler(int signum) {
     assert(signum == SIGDFS);
     dfs_termino = 1;
 }
+
 
 /********************************************
  * FUNCIONES
@@ -203,10 +213,6 @@ int is_dir(char* path) {
     int prof: profundidad de la recursión
 */
 void dfs(char* path, char* str, int prof) {
-    // Si alcanzamos la profuncidad máxima.
-    /*if (prof == altura) {
-        return;
-    }*/
     // Guardamos la ruta del directorio padre
     char file[2*SIZE];
     strcpy(file, dirName);
@@ -247,7 +253,7 @@ void dfs(char* path, char* str, int prof) {
         }
     }
     
-    // Checkeamos si estamos en una hoja
+    // Checkeamos si estamos en una hoja o en la profundidad máxima
     if (hijos == 0 || !is_dir(path) || prof==altura) {
 
         // escribimos en el pipe
@@ -349,6 +355,8 @@ int main(int argc, char **argv) {
 
         int status;
         close(pipePal[ESCRITURA]);
+
+        // Espera a que el hijo termine
         waitpid(pidPal, &status, 0);
         printf("\n");
     }
