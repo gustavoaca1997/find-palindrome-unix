@@ -11,6 +11,8 @@
 #include "pal.h"
 
 #define SIZE 256
+#define SIGNMBR SIGUSR1 // señal de que se leyó un nombre
+#define SIGAPLL SIGUSR2 // señal de que se leyó un appelido
 
 extern int dp[SIZE][SIZE];
 
@@ -26,8 +28,11 @@ int altura = 20, // altura maxima del arbol de archivos
     f = 0;          // si el flag -f aparece
 
 // Arreglo dinámico con los PID de los procesos hijos
-pid_t *procesosHijos;
-int pidsHijos = 0, pidsLength = SIZE;
+pid_t pidPal;//NUEVO
+//int pidsHijos = 0, pidsLength = SIZE;
+
+// Pipes
+int pipePal[2];
 
 /********************************************
  * FUNCIONES
@@ -100,9 +105,9 @@ int is_dir(char* path) {
 */
 void dfs(char* path, char* str, int prof) {
     // Si alcanzamos la profuncidad máxima.
-    if (prof == altura) {
+    /*if (prof == altura) {
         return;
-    }
+    }*/
     // Guardamos la ruta del directorio padre
     char file[2*SIZE];
     strcpy(file, dirName);
@@ -111,7 +116,7 @@ void dfs(char* path, char* str, int prof) {
     int hijos = 0;
 
     // Si estamos en un directorio
-    if (is_dir(path)) {
+    if (prof != altura && is_dir(path)) {
         // Abrimos directorio
         DIR *dir;
         struct dirent *direntDir;
@@ -146,12 +151,16 @@ void dfs(char* path, char* str, int prof) {
     }
     
     // Checkeamos si estamos en una hoja
-    if (hijos == 0 || !is_dir(path)) {
-        pid_t pidPal;
-
+    if (hijos == 0 || !is_dir(path) || prof==altura) {
+        memset(dp, -1, sizeof(dp));
+        // escribimos en el pipe
+        write(pipePal[1], str, strlen(str)+1);
+        //mandar senal al hijo
+        /*pid_t pidPal;
         // Si estamos en el proceso hijo
-        if ((pidPal = fork()) == 0) {
+        if (pidPal == 0) {
 
+            close(pipePal[0]);
         	memset(dp, -1, sizeof(dp));
 
             printf("Pasando %s\n", str);
@@ -167,7 +176,7 @@ void dfs(char* path, char* str, int prof) {
                 pidsLength = 2*pidsLength;
                 procesosHijos = realloc(procesosHijos, pidsLength);
             }
-        }
+        }*/
     }
 }
 
@@ -178,7 +187,10 @@ void dfs(char* path, char* str, int prof) {
 int main(int argc, char **argv) {
 
     // INICIALIZACION
-    procesosHijos = (pid_t *) malloc(sizeof(pid_t)*SIZE);
+    //procesosHijos = (pid_t *) malloc(sizeof(pid_t)*SIZE);
+
+    // llamamos a pipe()
+    pipe(pipePal);  //NUEVO
 
     // Si hay argumentos
     if (argc > 1) {
@@ -212,12 +224,24 @@ int main(int argc, char **argv) {
     // Quita los / del directorio
     char str[SIZE];
     dispath_this(dirName, str);
-    
-    dfs(dirName, str, 0);
 
-    int status;
-    for (int i=0; i<pidsHijos; i++) {
-        waitpid(procesosHijos[i], &status, 0);
+    // crea proceso hijo
+    if ((pidPal = fork()) == 0) {
+        // cierro el lado de escritura
+        close(pipePal[0]);
+    } 
+    // proceso padre
+    else {
+        // cierro lado de lectura
+        close(pipePal[1]);
+
+        // comienzo dfs
+        dfs(dirName, str, 0);
+
+        // PENDIENTE: MANDAR SEÑAL DE FINALIZACION AL HIJO
+
+        int status;
+        waitpid(pidPal, &status, 0);
     }
 
     return 0;

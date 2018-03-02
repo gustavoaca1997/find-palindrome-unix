@@ -41,12 +41,15 @@ int sub(char *str, int i, int j) {
 
 	int count=0;
 	if(pal(str, i, j)){
-		int it;
-		printf("\tPalindromo encontrado en [%d, %d]: ", i, j);
+		int it,t=0;
+		char linea[j-i+1];
+		//printf("\tPalindromo encontrado en [%d, %d]: ", i, j);
 		for(it=i;it<=j;it++){
 			printf("%c", str[it]);
+			linea[t]=str[it];
+			t++;
 		}
-		printf("\n");
+		printf("%s", ", ");//NUEVO
 		count++;
 	}
 	count += sub(str,i+1,j)+sub(str,i,j-1)-sub(str,i+1,j-1);
